@@ -207,7 +207,7 @@ int calculation(UE *ue){
 
     double left, right;
     left = ((double)temp->tp/(double)ue->CL)*(1/-log10(ue->DP));
-    right = ((node->data_remain/ue->CQI_dr)/temp->tp)*(1/-log10(ue->drop_package/ue->tail->number));
+    right = ((temp->data_remain/ue->CQI_dr)/temp->tp)*(1/-log10(ue->drop_package/ue->tail->number));
 
     if(left <= right){
         return 1;
@@ -294,7 +294,7 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
     rb -= gtt_count;
 
     for(int i=0; i<rb; i++){
-        gtt_send[normal_throughput[i][0]] = 2;
+        gtt_send[(int)normal_throughput[i][0]] = 2;
     }
 
     temp_ue_normal = normal->head;
