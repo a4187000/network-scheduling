@@ -16,8 +16,8 @@ double throughput = 0;
 //node
 typedef struct package
 {
-    int tp;
-    int flow;
+    int tp; //remaining time
+    int flow; //flow number
     int number;
     double data_remain;
     package *pre;
@@ -82,11 +82,15 @@ int main(int argc, char *argv[]){
     normal = gen_mgr(Max, QCI);
     GTT = gen_mgr(Max, QCI);
     GTT->mgr_type = 1;
+    normal->mgr_type = 0;
     int time = 0;
 
     //GBR
     while(choose == 1){
         if(total/Max >= times){
+            for(int i=0; i<Max; i++){
+
+            }
             printf("system drop rate = %lf\n", drop/total);
             printf("system through put =%lf\n", (throughput*data)/(times*1000));
             return 0;
@@ -122,7 +126,8 @@ flow_mgr* gen_mgr(int Max, int QCI){
 
     for(int i=0; i<Max; i++){
         new_UE = (UE*)malloc(sizeof(UE));
-        new_UE->CQI = 0;//須完成
+        new_UE->CQI = 0;//更新在calculation_normal
+        new_UE->CQI_dr = 0; // 更新在calculation_normal
         new_UE->QCI = QCI_arr[QCI];
         new_UE->CL = CL[QCI];
         new_UE->DP = DP[QCI];
@@ -159,10 +164,10 @@ void gen_new_package(flow_mgr* mgr, int num){
     temp_UE = mgr->head;
     for(int i=0; i<mgr->flow_count; i++){
         newnode = (package*)malloc(sizeof(package));
-        newnode->tp = rand()%30+1;
+        newnode->tp = rand()%30+1; //使用CQI預估
         newnode->flow = i;
         newnode->number = num;
-        newnode->data_remain = data[temp_UE->QCI_index];
+        newnode->data_remain = temp_UE->data;
         newnode->pre = NULL;
         newnode->next = NULL;
         if(temp_UE->count == 0){
@@ -186,7 +191,7 @@ void calculation_normal(flow_mgr *normal, flow_mgr *GTT){
 
     while(temp_ue != NULL){
         temp = temp_ue->head;
-        if(temp_ue->QCI != 6){
+        if(temp_ue->QCI != 6){ //要改成正確ＱＣＩ指標
             if(calculation(temp_ue)){
                 delet_package(temp_ue, temp);
                 add_package(GTT, temp);
@@ -283,9 +288,13 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
 
     temp_ue_normal = normal->head;
     for(int i=0; i<normal->flow_count; i++){
-        if(gtt_send[i] == 0){
+        if(gtt_send[i] == 0){ //no package in GTT
             normal_throughput[i][0] = i;
             normal_throughput[i][1] = temp_ue_normal->through_put;
+        }
+        else{ // if there is any package in GTT mark 0
+            normal_throughput[i][0] = 0;
+            normal_throughput[i][1] = 0;
         }
         temp_ue_normal = temp_ue_normal->next;
     }
@@ -293,18 +302,44 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
     qsort(normal_throughput, normal->flow_count, sizeof(normal_throughput[0]), cmp);
     rb -= gtt_count;
 
-    for(int i=0; i<rb; i++){
+    for(int i=0; i<rb; i++){ // mark the sending UE in normal
         gtt_send[(int)normal_throughput[i][0]] = 2;
     }
 
     temp_ue_normal = normal->head;
     temp_ue = GTT->head;
     for(int i=0; i<GTT->flow_count; i++){
-        if(gtt_send[i] == 1){
-
+        if(gtt_send[i] == 1){ // there is any package in GTT
+            data_remain = temp_ue->CQI_dr;
+            while(data_remain > 0 && temp_ue->count > 0){
+                if(1){
+                    data_remain -= temp_ue->head->data_remain;
+                    temp_ue_normal->through_put++;
+                    temp = temp_ue->head;
+                    delet_package(temp_ue, temp_ue->head);
+                    //free function
+                }
+            }
+            while(data_remain > 0 && temp_ue_normal->count > 0){
+                if(1){
+                    data_remain -= temp_ue_normal->drop_package;
+                    temp_ue_normal->through_put++;
+                    temp = temp_ue_normal->head;
+                    delet_package(temp_ue_normal, temp);
+                    //free function
+                }
+            }
         }
-        else if(gtt_send[i] == 2){
-
+        else if(gtt_send[i] == 2){ //there is only in normal and send in this TTI
+            while(data_remain > 0 && temp_ue_normal->count > 0){
+                if(1){
+                    data_remain -= temp_ue_normal->drop_package;
+                    temp_ue_normal->through_put++;
+                    temp = temp_ue_normal->head;
+                    delet_package(temp_ue_normal, temp);
+                    //free function
+                }
+            }
         }
         temp_ue_normal = temp_ue_normal->next;
         temp_ue = temp_ue->next;
