@@ -66,6 +66,7 @@ int calculation(UE *);
 void delet_package(UE *, package *);
 void add_package(flow_mgr *, package *);
 void afterTTI_GBR(flow_mgr *, flow_mgr *, int );
+void free_package(package *);
 
 int main(int argc, char *argv[]){
     //a.exe times(ms) choose(1=GBR, 2=MT, 3=PF) flow(ue) QCI
@@ -92,7 +93,7 @@ int main(int argc, char *argv[]){
 
             }
             printf("system drop rate = %lf\n", drop/total);
-            printf("system through put =%lf\n", (throughput*data)/(times*1000));
+            //printf("system through put =%lf\n", (throughput*data)/(times*1000));
             return 0;
         }
 
@@ -103,7 +104,7 @@ int main(int argc, char *argv[]){
 
         calculation_normal(normal, GTT);
 
-        
+        afterTTI_GBR(normal, GTT, 20);
     }
 
 }
@@ -187,8 +188,51 @@ void gen_new_package(flow_mgr* mgr, int num){
 void calculation_normal(flow_mgr *normal, flow_mgr *GTT){
     UE *temp_ue;
     package *temp;
+    package *temp_del;
     temp_ue = normal->head;
 
+    //calculation nomal if there is any package overtime
+    while(temp_ue != NULL){
+        temp = temp_ue->head;
+        while(temp != NULL){
+            if(temp->tp < 0){
+                temp_del = temp;
+                temp = temp->next;
+                delet_package(temp_ue, temp_del);
+                free_package(temp_del);
+                drop++;
+                printf("%lf", drop);
+            }
+            else{
+                temp->tp--;
+                temp = temp->next;
+            }
+        }
+        temp_ue = temp_ue->next;
+    }
+    
+    //calculation GTT if there is any package overtime
+    temp_ue = GTT->head;
+    while(temp_ue != NULL){
+        temp = temp_ue->head;
+        while(temp != NULL){
+            if(temp->tp < 0){
+                temp_del = temp;
+                temp = temp->next;
+                delet_package(temp_ue, temp_del);
+                free_package(temp_del);
+                drop++;
+                printf("%lf", drop);
+            }
+            else{
+                temp->tp--;
+                temp = temp->next;
+            }
+        }
+        temp_ue = temp_ue->next;
+    }
+
+    temp_ue = normal->head;
     while(temp_ue != NULL){
         temp = temp_ue->head;
         if(temp_ue->QCI != 6){ //要改成正確ＱＣＩ指標
@@ -265,6 +309,10 @@ void add_package(flow_mgr *mgr, package *node){
     temp->count++;
 }
 
+void free_package(package *del){
+    free(del);
+}
+
 void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
     int send;
     int gtt_count = 0;
@@ -293,7 +341,7 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
             normal_throughput[i][1] = temp_ue_normal->through_put;
         }
         else{ // if there is any package in GTT mark 0
-            normal_throughput[i][0] = 0;
+            normal_throughput[i][0] = i;
             normal_throughput[i][1] = 0;
         }
         temp_ue_normal = temp_ue_normal->next;
@@ -312,12 +360,15 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
         if(gtt_send[i] == 1){ // there is any package in GTT
             data_remain = temp_ue->CQI_dr;
             while(data_remain > 0 && temp_ue->count > 0){
-                if(1){
+                if(data_remain >= temp_ue->head->data_remain){
                     data_remain -= temp_ue->head->data_remain;
                     temp_ue_normal->through_put++;
                     temp = temp_ue->head;
                     delet_package(temp_ue, temp_ue->head);
-                    //free function
+                    free_package(temp);
+                }
+                else{
+                    
                 }
             }
             while(data_remain > 0 && temp_ue_normal->count > 0){
@@ -326,7 +377,7 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
                     temp_ue_normal->through_put++;
                     temp = temp_ue_normal->head;
                     delet_package(temp_ue_normal, temp);
-                    //free function
+                    free_package(temp);
                 }
             }
         }
@@ -337,7 +388,7 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
                     temp_ue_normal->through_put++;
                     temp = temp_ue_normal->head;
                     delet_package(temp_ue_normal, temp);
-                    //free function
+                    free_package(temp);
                 }
             }
         }
