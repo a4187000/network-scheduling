@@ -66,7 +66,9 @@ int calculation(UE *);
 void delet_package(UE *, package *);
 void add_package(flow_mgr *, package *);
 void afterTTI_GBR(flow_mgr *, flow_mgr *, int );
+
 void free_package(package *);
+void print_all(flow_mgr *);
 
 int main(int argc, char *argv[]){
     //a.exe times(ms) choose(1=GBR, 2=MT, 3=PF) flow(ue) QCI
@@ -101,10 +103,13 @@ int main(int argc, char *argv[]){
         total+=Max;
 
         gen_new_package(normal, time);
+        //print_all(normal);
 
         calculation_normal(normal, GTT);
 
         afterTTI_GBR(normal, GTT, 20);
+
+        //print_all(normal);
     }
 
 }
@@ -128,7 +133,7 @@ flow_mgr* gen_mgr(int Max, int QCI){
     for(int i=0; i<Max; i++){
         new_UE = (UE*)malloc(sizeof(UE));
         new_UE->CQI = 0;//更新在calculation_normal
-        new_UE->CQI_dr = 0; // 更新在calculation_normal
+        new_UE->CQI_dr = 2; // 更新在calculation_normal
         new_UE->QCI = QCI_arr[QCI];
         new_UE->CL = CL[QCI];
         new_UE->DP = DP[QCI];
@@ -190,18 +195,19 @@ void calculation_normal(flow_mgr *normal, flow_mgr *GTT){
     package *temp;
     package *temp_del;
     temp_ue = normal->head;
+    int time=0;
 
     //calculation nomal if there is any package overtime
     while(temp_ue != NULL){
         temp = temp_ue->head;
         while(temp != NULL){
-            if(temp->tp < 0){
+            if(temp->tp < temp->data_remain / temp_ue->CQI_dr){
                 temp_del = temp;
                 temp = temp->next;
                 delet_package(temp_ue, temp_del);
                 free_package(temp_del);
                 drop++;
-                printf("%lf", drop);
+                temp_ue->drop_package++;
             }
             else{
                 temp->tp--;
@@ -210,19 +216,19 @@ void calculation_normal(flow_mgr *normal, flow_mgr *GTT){
         }
         temp_ue = temp_ue->next;
     }
-    
+
     //calculation GTT if there is any package overtime
     temp_ue = GTT->head;
     while(temp_ue != NULL){
         temp = temp_ue->head;
         while(temp != NULL){
-            if(temp->tp < 0){
+            if(temp->tp < temp->data_remain / temp_ue->CQI_dr){
                 temp_del = temp;
                 temp = temp->next;
                 delet_package(temp_ue, temp_del);
                 free_package(temp_del);
                 drop++;
-                printf("%lf", drop);
+                //normal package lost ++
             }
             else{
                 temp->tp--;
@@ -235,7 +241,7 @@ void calculation_normal(flow_mgr *normal, flow_mgr *GTT){
     temp_ue = normal->head;
     while(temp_ue != NULL){
         temp = temp_ue->head;
-        if(temp_ue->QCI != 6){ //要改成正確ＱＣＩ指標
+        if(temp_ue->QCI != 6 && temp_ue->count != 0){ //要改成正確ＱＣＩ指標
             if(calculation(temp_ue)){
                 delet_package(temp_ue, temp);
                 add_package(GTT, temp);
@@ -255,7 +261,7 @@ int calculation(UE *ue){
     temp = ue->head;
 
     double left, right;
-    left = ((double)temp->tp/(double)ue->CL)*(1/-log10(ue->DP));
+    left = ((double)temp->tp/(double)ue->DP)*(1/-log10(ue->CL));
     right = ((temp->data_remain/ue->CQI_dr)/temp->tp)*(1/-log10(ue->drop_package/ue->tail->number));
 
     if(left <= right){
@@ -311,6 +317,33 @@ void add_package(flow_mgr *mgr, package *node){
 
 void free_package(package *del){
     free(del);
+}
+
+void print_all(flow_mgr *mgr){
+    UE *temp_ue = mgr->head;
+    package *temp;
+
+    printf("UE: %d\n", mgr->flow_count);
+    for(int i=1; i<=mgr->flow_count; i++){
+        printf("flow %d\n", i);
+        printf("CL:%lf ", temp_ue->CL);
+        printf("count:%d ", temp_ue->count);
+        printf("CQI:%d ", temp_ue->CQI);
+        printf("dr:%d ", temp_ue->CQI_dr);
+        printf("data:%lf ", temp_ue->data);
+        printf("DP:%d ", temp_ue->DP);
+        printf("drop package:%d ", temp_ue->drop_package);
+        printf("QCI:%d\n", temp_ue->QCI);
+        temp = temp_ue->head;
+        for(int j=1; j<=temp_ue->count; j++){
+            printf("package:%d ", j);
+            printf("data remain:%lf ", temp->data_remain);
+            printf("tp:%d", temp->tp);
+            temp = temp->next;
+        }
+        temp_ue = temp_ue->next;
+        printf("\n");
+    }
 }
 
 void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
