@@ -96,7 +96,7 @@ int main(int argc, char *argv[]){
             }
             printf("drop: %lf total: %lf\n", drop, total);
             printf("system drop rate = %lf\n", drop/total);
-            //printf("system through put =%lf\n", (throughput*data)/(times*1000));
+            printf("system throughput =%lf\n", throughput);
             return 0;
         }
 
@@ -450,6 +450,7 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
             printf("send\n");
             while(data_remain > 0 && temp_ue->count > 0){
                 if(data_remain >= temp_ue->head->data_remain){
+                    throughput++;
                     data_remain -= temp_ue->head->data_remain;
                     temp_ue_normal->through_put++;
                     temp = temp_ue->head;
@@ -463,6 +464,7 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
             }
             while(data_remain > 0 && temp_ue_normal->count > 0){
                 if(data_remain >= temp_ue_normal->head->data_remain){
+                    throughput++;
                     data_remain -= temp_ue_normal->head->data_remain;
                     temp_ue_normal->through_put++;
                     temp = temp_ue_normal->head;
@@ -478,6 +480,7 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
         else if(gtt_send[i] == 2 && send == 1){ //there is only in normal and send in this TTI
             while(data_remain > 0 && temp_ue_normal->count > 0){
                 if(data_remain >= temp_ue_normal->head->data_remain){
+                    throughput++;
                     data_remain -= temp_ue_normal->head->data_remain;
                     temp_ue_normal->through_put++;
                     temp = temp_ue_normal->head;
