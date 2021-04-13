@@ -69,6 +69,7 @@ void afterTTI_GBR(flow_mgr *, flow_mgr *, int );
 
 void free_package(package *);
 void print_all(flow_mgr *);
+void print_flow(UE *);
 
 int main(int argc, char *argv[]){
     //a.exe times(ms) choose(1=GBR, 2=MT, 3=PF) flow(ue) QCI
@@ -205,14 +206,15 @@ void calculation_normal(flow_mgr *normal, flow_mgr *GTT){
     while(temp_ue != NULL){
         temp = temp_ue->head;
         while(temp != NULL){
-            if(temp->tp < (temp->data_remain / (double)temp_ue->CQI_dr)){
+            if(temp->tp < 0){
+                //print_flow(temp_ue);
                 //printf("%d %lf\n", temp->tp, (temp->data_remain / temp_ue->CQI_dr));
                 temp_del = temp;
                 temp = temp->next;
                 delet_package(temp_ue, temp_del);
                 free_package(temp_del);
                 drop++;
-                //printf("drop %d\n", temp_ue->flow);
+                printf("drop_normal %d\n", temp_ue->flow);
                 temp_ue->drop_package++;
             }
             else{
@@ -234,6 +236,9 @@ void calculation_normal(flow_mgr *normal, flow_mgr *GTT){
                 temp_ue->CQI_dr = CQI_dr[temp_ue->CQI];
             }
         }
+        else{
+            temp_ue->CQI_dr = CQI_dr[temp_ue->CQI];
+        }
         temp_ue = temp_ue->next;
     }
 
@@ -243,12 +248,14 @@ void calculation_normal(flow_mgr *normal, flow_mgr *GTT){
     while(temp_ue != NULL){
         temp = temp_ue->head;
         while(temp != NULL){
-            if(temp->tp < (temp->data_remain / temp_ue->CQI_dr)){
+            if(temp->tp < 0){
+                //print_flow(temp_ue);
                 temp_del = temp;
                 temp = temp->next;
                 delet_package(temp_ue, temp_del);
                 free_package(temp_del);
                 drop++;
+                //printf("drop_GTT %d\n", temp_ue->flow);
                 temp_ue_normal->drop_package++;
             }
             else{
@@ -267,6 +274,7 @@ void calculation_normal(flow_mgr *normal, flow_mgr *GTT){
         temp = temp_ue->head;
         if(temp_ue->QCI != 6 && temp_ue->count != 0){ //要改成正確ＱＣＩ指標
             if(calculation(temp_ue)){
+                //print_flow(temp_ue);
                 delet_package(temp_ue, temp);
                 add_package(GTT, temp);
             }
@@ -369,12 +377,34 @@ void print_all(flow_mgr *mgr){
         printf("\n");
     }
 }
+void print_flow(UE * temp_ue){
+    package *temp;
+
+    printf("flow %d\n", temp_ue->flow);
+    printf("CL:%lf ", temp_ue->CL);
+    printf("count:%d ", temp_ue->count);
+    printf("CQI:%d ", temp_ue->CQI);
+    printf("dr:%lf ", temp_ue->CQI_dr);
+    printf("data:%lf ", temp_ue->data);
+    printf("DP:%d ", temp_ue->DP);
+    printf("drop package:%d ", temp_ue->drop_package);
+    printf("QCI:%d ", temp_ue->QCI);
+    printf("throughput%lf\n",temp_ue->through_put);
+    temp = temp_ue->head;
+    for(int j=1; j<=temp_ue->count; j++){
+        printf("package:%d ", j);
+        printf("data remain:%lf ", temp->data_remain);
+        printf("tp:%d\n", temp->tp);
+        temp = temp->next;
+    }
+    printf("\n");
+}
 
 void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
     int send;
     int gtt_count = 0;
     int gtt_send[GTT->flow_count];
-    int data_remain;
+    double data_remain;
     double normal_throughput[normal->flow_count][2];
     UE *temp_ue_normal;
     package *temp, *temp_normal, *del;
@@ -407,12 +437,14 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
 
     qsort(normal_throughput, normal->flow_count, sizeof(normal_throughput[0]), cmp);
     rb -= gtt_count;
-    int index = normal->flow_count;
-    for(int i=0; i<rb && index > 0; ){ // mark the sending UE in normal
-        if((int)normal_throughput[index][0]!=-1){
+    int index = normal->flow_count-1;
+    int time = 0;
+    for(int i=0; i<rb && index >= 0; ){ // mark the sending UE in normal
+        if((int)normal_throughput[index][1]!=-1){
             gtt_send[(int)normal_throughput[index][0]] = 2;
             i++;
             index--;
+            time++;
         }
         else{
             index--;
@@ -422,10 +454,18 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
     temp_ue_normal = normal->head;
     temp_ue = GTT->head;
     for(int i=0; i<GTT->flow_count; i++){
-        data_remain = temp_ue->CQI_dr;
+        data_remain = temp_ue_normal->CQI_dr;
         int send_random = rand()%100;
         if(temp_ue_normal->CQI >= 10){
             send = 1;
+        }
+        else if(gtt_send[i]==1){
+            if(send_random <= 90){
+                send = 1;
+            }
+            else{
+                send = 0;
+            }
         }
         else if(temp_ue_normal->CQI >= 7 && temp_ue_normal->CQI <10){
             if(send_random <= 90){
@@ -447,7 +487,6 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
             send = 0;
         } 
         if(gtt_send[i] == 1 && send ==1){ // there is any package in GTT
-            printf("send\n");
             while(data_remain > 0 && temp_ue->count > 0){
                 if(data_remain >= temp_ue->head->data_remain){
                     throughput++;
@@ -478,7 +517,7 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
             }
         }
         else if(gtt_send[i] == 2 && send == 1){ //there is only in normal and send in this TTI
-            while(data_remain > 0 && temp_ue_normal->count > 0){
+            while((data_remain > 0) && (temp_ue_normal->count > 0)){
                 if(data_remain >= temp_ue_normal->head->data_remain){
                     throughput++;
                     data_remain -= temp_ue_normal->head->data_remain;
@@ -492,6 +531,14 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
                     data_remain = 0;
                 }
             }
+        }
+        //error dective
+        else if(gtt_send[i]==0){
+            //printf("Normal_count:%d\n", temp_ue_normal->count);
+            //print_flow(temp_ue_normal);
+            printf("gtt_count:%d rb:%d\n", gtt_count, rb);
+            printf("time:%d\n", time);
+            printf("flow:%d gtt_send:%d send:%d\n", temp_ue_normal->flow, gtt_send[i], send);
         }
         temp_ue_normal = temp_ue_normal->next;
         temp_ue = temp_ue->next;
