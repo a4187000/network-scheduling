@@ -172,7 +172,7 @@ void gen_new_package(flow_mgr* mgr, int num){
     temp_UE = mgr->head;
     for(int i=0; i<mgr->flow_count; i++){
         newnode = (package*)malloc(sizeof(package));
-        newnode->tp = 90; //使用CQI預估
+        newnode->tp = 30; //使用CQI預估
         newnode->flow = i;
         newnode->number = num;
         newnode->data_remain = temp_UE->data;
@@ -214,7 +214,7 @@ void calculation_normal(flow_mgr *normal, flow_mgr *GTT){
                 delet_package(temp_ue, temp_del);
                 free_package(temp_del);
                 drop++;
-                printf("drop_normal %d\n", temp_ue->flow);
+                //printf("drop_normal %d\n", temp_ue->flow);
                 temp_ue->drop_package++;
             }
             else{
@@ -533,6 +533,7 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
             }
         }
         //error dective
+        /*
         else if(gtt_send[i]==0){
             //printf("Normal_count:%d\n", temp_ue_normal->count);
             //print_flow(temp_ue_normal);
@@ -540,6 +541,7 @@ void afterTTI_GBR(flow_mgr *normal, flow_mgr *GTT, int rb){
             printf("time:%d\n", time);
             printf("flow:%d gtt_send:%d send:%d\n", temp_ue_normal->flow, gtt_send[i], send);
         }
+        */
         temp_ue_normal = temp_ue_normal->next;
         temp_ue = temp_ue->next;
     }
